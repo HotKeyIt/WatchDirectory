@@ -83,7 +83,7 @@ GuiClose:
 WatchDirectory("") ;Stop Watching Directory = delete all directories
 ExitApp
 */
-;~ #include <Struct>
+#include <_Struct>
 WatchDirectory(p*){
   ;Structures
   static FILE_NOTIFY_INFORMATION:="DWORD NextEntryOffset,DWORD Action,DWORD FileNameLength,WCHAR FileName[1]"
@@ -106,7 +106,7 @@ WatchDirectory(p*){
         DllCall("CloseHandle","Uint",__[folder].hD),DllCall("CloseHandle","Uint",__[folder].O.hEvent)
         ,__.Delete(folder)
       _:=[]
-      ,DirEvents:=Struct("HANDLE[1000]")
+      ,DirEvents:=new _Struct("HANDLE[1000]")
       ,DllCall("KillTimer","Uint",0,"Uint",timer)
       ,timer:=""
       Return 0
@@ -164,12 +164,12 @@ WatchDirectory(p*){
     __[LP].CNG:=(p.3?p.3:(0x1|0x2|0x4|0x8|0x10|0x40|0x100))
     If !reset {
       __[LP].SetCapacity("pFNI",sizeof_FNI)
-      __[LP].FNI:=Struct(FILE_NOTIFY_INFORMATION,__[LP].GetAddress("pFNI"))
-      __[LP].O:=Struct(OVERLAPPED)
+      __[LP].FNI:=new _Struct(FILE_NOTIFY_INFORMATION,__[LP].GetAddress("pFNI"))
+      __[LP].O:=new _Struct(OVERLAPPED)
     }
     __[LP].O.hEvent:=DllCall("CreateEvent","Uint",0,"Int",1,"Int",0,"UInt",0)
     If (!DirEvents)
-      DirEvents:=Struct("HANDLE[1000]")
+      DirEvents:=new _Struct("HANDLE[1000]")
     DirEvents[reset?reset:_.Length()]:=__[LP].O.hEvent
     DllCall("ReadDirectoryChangesW","UInt",__[LP].hD,"UInt",__[LP].FNI[""],"UInt",sizeof_FNI
            ,"Int",__[LP].sD,"UInt",__[LP].CNG,"UInt",0,"UInt",__[LP].O[""],"UInt",0)
@@ -201,7 +201,7 @@ WatchDirectory(p*){
         reconnect[LP]:=LP
     } else
       Loop {
-        FNI:=A_Index>1?(Struct(FILE_NOTIFY_INFORMATION,FNI[""]+FNI.NextEntryOffset)):(Struct(FILE_NOTIFY_INFORMATION,__[LP].FNI[""]))
+        FNI:=A_Index>1?(new _Struct(FILE_NOTIFY_INFORMATION,FNI[""]+FNI.NextEntryOffset)):(new _Struct(FILE_NOTIFY_INFORMATION,__[LP].FNI[""]))
         If (FNI.Action < 0x6){
           FileName:=__[LP].dir . StrGet(FNI.FileName[""],FNI.FileNameLength/2,"UTF-16")
           If ((FNI.Action=FILE_ACTION_RENAMED_OLD_NAME && FileFromOptional:=FileName) || __[LP].FLT=""

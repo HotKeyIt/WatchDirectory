@@ -22,17 +22,18 @@ WatchDirectory syntax:
 	WatchDirectory("C:\temp\*|.txt\|.ini\|\a","ReportChanges")
 	- func, a function to be launched when changes in corresponding folder occur
 	- when you omit func, last used function will be used
-	- Your function must accept 2 parameters
+	- Your function must accept 3 parameters
+	  - first parameter will be the object (this)
 	  - When new file is created:
-	    - first parameter will be empty
-	    - second parameter will contain the filepath
+	    - second parameter will be empty
+	    - third parameter will contain the filepath
 	      - When file is deleted
-	      - second parameter will be empty
-	      - first parameter will contain the filepath
+	      - third parameter will be empty
+	      - second parameter will contain the filepath
 	      - When file is modified both parameters contain same filepath
 		- When file is renamed
-		  - first parameter will contain old filename
-		  - second parameter will contain new filename
+		  - second parameter will contain old filename
+		  - third parameter will contain new filename
 	    - ActionFilter can be used to report only specific changes
 		- therefore include one or several of following values i
 		- FILE_NOTIFY_CHANGE_FILE_NAME=0x1

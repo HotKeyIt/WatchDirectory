@@ -1,4 +1,4 @@
-WatchDirectory will inform you about files changes in specified directories.
+WatchDirectory will inform you about file changes in specified directories.
 
 You can get informed about certain files only using a filter and also filter on types of changes (e.g. new files, renamed files, changed files...)
 

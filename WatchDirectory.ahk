@@ -1,6 +1,6 @@
 /*
 SetWinDelay,-1
-OnExit, GuiClose
+OnExit("GuiClose")
 
 WatchFolders:="C:\Temp*|%A_Temp%*|%A_Desktop%|%A_DesktopCommon%|%A_MyDocuments%*|%A_ScriptDir%|%A_WinDir%*"
 Gui,+Resize
@@ -46,11 +46,11 @@ Return
 Add:
 Gui,+OwnDialogs
 dir:=""
-FileSelectFolder,dir,,3,Select directory to watch for
+DirSelect,dir,,3,Select directory to watch for
 If !dir
    Return
 SetTimer,SetMsgBoxButtons,-10
-MsgBox, 262146,Add directory,Would you like to watch for changes in:`n%dir%
+MsgBox, Would you like to watch for changes in:`n%dir%,Add directory,262146,A_MsgBoxResult
 
 Gui,ListView, WatchingDirectoriesList
 If (A_MsgBoxResult="Retry")
@@ -78,10 +78,13 @@ ReportChanges(this,from,to){
    TotalChanges++
    SB_SetText("Changes Registered " . TotalChanges)
 }
-
+GuiClose(){
+  WatchDirectory("") ;Stop Watching Directory = delete all directories
+  ExitApp
+}
 GuiClose:
-WatchDirectory("") ;Stop Watching Directory = delete all directories
-ExitApp
+GuiClose()
+
 */
 #include <_Struct>
 WatchDirectory(p*){
@@ -106,7 +109,7 @@ WatchDirectory(p*){
         DllCall("CloseHandle","Uint",__[folder].hD),DllCall("CloseHandle","Uint",__[folder].O.hEvent)
         ,__.Delete(folder)
       _:=[]
-      ,DirEvents:=new _Struct("HANDLE[1000]")
+      ,DirEvents:=Struct("HANDLE[1000]")
       ,DllCall("KillTimer","Uint",0,"Uint",timer)
       ,timer:=""
       Return 0
@@ -115,7 +118,7 @@ WatchDirectory(p*){
       ; If !IsFunc(ReportToFunction)
         ; Return -1 ;DllCall("MessageBox","Uint",0,"Str","Function " ReportToFunction " does not exist","Str","Error Missing Function","UInt",0)
       RegExMatch(p.1,"^([^/\*\?<>\|`"]+)(\*)?(\|.+)?$",dir)
-      loop % dir.count()
+      loop dir.count()
         dir%A_Index%:=dir[A_Index]
       if (SubStr(dir1,-1)="\")
         dir1:=SubStr(dir1,1,-1)
@@ -123,7 +126,7 @@ WatchDirectory(p*){
       If (max=2 && ReportToFunction=""){
         for i,folder in _
           If (dir1=SubStr(folder,1,-1))
-            Return 0 ,DirEvents[i]:=DirEvents[_.Length()],DirEvents[_.Length()]:=0
+            Return (DirEvents[i]:=DirEvents[_.Length()],DirEvents[_.Length()]:=0,0)
                    __.Delete(folder),_[i]:=_[_.Length()],_.Delete(i)
         Return 0
       }
@@ -146,10 +149,10 @@ WatchDirectory(p*){
               ,"PTR",0,"UInt",0x3,"UInt",0x2000000|0x40000000,"PTR",0)
     __[LP].sD:=(dir2=""?0:1)
 
-    LoopParse,%StringToRegEx%,|
-      StrReplace,dir3,%dir3%,% SubStr(A_LoopField,1,1),% SubStr(A_LoopField,2)
-    StrReplace,dir3,%dir3%,%A_Space%,\s
-    LoopParse,%dir3%,|
+    Loop Parse, StringToRegEx,"|"
+      dir3:=StrReplace(dir3,SubStr(A_LoopField,1,1), SubStr(A_LoopField,2))
+    dir3:=StrReplace(dir3,A_Space,"\s")
+    Loop Parse,dir3,"|"
     {
       If A_Index=1
         dir3:=""
@@ -164,20 +167,21 @@ WatchDirectory(p*){
     __[LP].CNG:=(p.3?p.3:(0x1|0x2|0x4|0x8|0x10|0x40|0x100))
     If !reset {
       __[LP].SetCapacity("pFNI",sizeof_FNI)
-      __[LP].FNI:=new _Struct(FILE_NOTIFY_INFORMATION,__[LP].GetAddress("pFNI"))
-      __[LP].O:=new _Struct(OVERLAPPED)
+      __[LP].FNI:=Struct(FILE_NOTIFY_INFORMATION,__[LP].GetAddress("pFNI"))
+      __[LP].O:=Struct(OVERLAPPED)
     }
     __[LP].O.hEvent:=DllCall("CreateEvent","Uint",0,"Int",1,"Int",0,"UInt",0)
     If (!DirEvents)
-      DirEvents:=new _Struct("HANDLE[1000]")
+      DirEvents:=Struct("HANDLE[1000]")
     DirEvents[reset?reset:_.Length()]:=__[LP].O.hEvent
     DllCall("ReadDirectoryChangesW","UInt",__[LP].hD,"UInt",__[LP].FNI[""],"UInt",sizeof_FNI
            ,"Int",__[LP].sD,"UInt",__[LP].CNG,"UInt",0,"UInt",__[LP].O[""],"UInt",0)
     Return timer:=DllCall("SetTimer","Uint",0,"UInt",timer,"Uint",50,"UInt",WatchDirectory)
   } else {
-    Sleep, 0
-	If !DirEvents
-		return
+    Sleep -1
+  	If !DirEvents
+  		return
+    DllCall("KillTimer", UInt,0, UInt,timer)
     for LP in reconnect
     {
       If (FileExist(__[LP].dir) && reconnect.Delete(LP)){
@@ -192,16 +196,15 @@ WatchDirectory(p*){
     if !( (r:=DllCall("MsgWaitForMultipleObjectsEx","UInt",_.Length()
              ,"UInt",DirEvents[""],"UInt",0,"UInt",0x4FF,"UInt",6))>=0
              && r<_.Length() ){
-      return
+      return timer:=DllCall("SetTimer","Uint",0,"UInt",timer,"Uint",50,"UInt",WatchDirectory)
     }
-    DllCall("KillTimer", UInt,0, UInt,timer)
     LP:=_[r+1],DllCall("GetOverlappedResult","UInt",__[LP].hD,"UInt",__[LP].O[""],"UIntP",nReadLen,"Int",1)
     If (A_LastError=64){ ; ERROR_NETNAME_DELETED - The specified network name is no longer available.
       If !FileExist(__[LP].dir) ; If folder does not exist add to reconnect routine
         reconnect[LP]:=LP
     } else
       Loop {
-        FNI:=A_Index>1?(new _Struct(FILE_NOTIFY_INFORMATION,FNI[""]+FNI.NextEntryOffset)):(new _Struct(FILE_NOTIFY_INFORMATION,__[LP].FNI[""]))
+        FNI:=A_Index>1?(Struct(FILE_NOTIFY_INFORMATION,FNI[""]+FNI.NextEntryOffset)):(Struct(FILE_NOTIFY_INFORMATION,__[LP].FNI[""]))
         If (FNI.Action < 0x6){
           FileName:=__[LP].dir . StrGet(FNI.FileName[""],FNI.FileNameLength/2,"UTF-16")
           If ((FNI.Action=FILE_ACTION_RENAMED_OLD_NAME && FileFromOptional:=FileName) || __[LP].FLT=""
